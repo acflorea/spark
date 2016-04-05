@@ -338,7 +338,7 @@ class KMeansSuite extends SparkFunSuite with MLlibTestSparkContext {
         seed = Utils.random.nextLong(), m = 2.0)
 
       val predicts = model.predict(rdd).collect()
-      val fuzzyPredicts = model.predict(rdd).collect()
+      val fuzzyPredicts = fuzzyModel.predict(rdd).collect()
 
       assert(predicts(0) === predicts(1))
       assert(predicts(0) === predicts(2))

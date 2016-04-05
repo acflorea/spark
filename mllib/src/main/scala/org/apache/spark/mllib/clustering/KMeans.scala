@@ -707,8 +707,8 @@ object KMeans {
 
       val perfectMatches = distances.count(d => d == 0.0)
       if (perfectMatches > 0) {
-        // If at least one of the distances is 0 the membershib divides between
-        // the perfect mathces
+        // If at least one of the distances is 0 the membership divides between
+        // the perfect matches
         (distances map (d => if (d == 0.0) 1.0 / perfectMatches else 0.0), distances)
       } else {
         // Standard formula
