@@ -66,7 +66,7 @@ class FuzzyCMeansSuite extends SparkFunSuite with MLlibTestSparkContext {
       // Save model, load it back, and compare.
       try {
         model.save(sc, path)
-        val sameModel = FuzzyCMeansModel.load(sc, path)
+        val sameModel = KMeansModel.load(sc, path)
         FuzzyCSuite.checkEqual(model, sameModel)
       } finally {
         Utils.deleteRecursively(tempDir)
@@ -78,18 +78,19 @@ class FuzzyCMeansSuite extends SparkFunSuite with MLlibTestSparkContext {
 
 
 object FuzzyCSuite extends SparkFunSuite {
-  def createModel(dim: Int, k: Int, isSparse: Boolean): FuzzyCMeansModel = {
+  def createModel(dim: Int, k: Int, isSparse: Boolean): KMeansModel = {
     val singlePoint = isSparse match {
       case true =>
         Vectors.sparse(dim, Array.empty[Int], Array.empty[Double])
       case _ =>
         Vectors.dense(Array.fill[Double](dim)(0.0))
     }
-    new FuzzyCMeansModel(Array.fill[Vector](k)(singlePoint))
+    new KMeansModel(Array.fill[Vector](k)(singlePoint), 2)
   }
 
-  def checkEqual(a: FuzzyCMeansModel, b: FuzzyCMeansModel): Unit = {
+  def checkEqual(a: KMeansModel, b: KMeansModel): Unit = {
     assert(a.k === b.k)
+    assert(a.m === b.m)
     a.clusterCenters.zip(b.clusterCenters).foreach {
       case (ca: SparseVector, cb: SparseVector) =>
         assert(ca === cb)

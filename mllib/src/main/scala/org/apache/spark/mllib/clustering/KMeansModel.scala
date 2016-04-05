@@ -37,7 +37,8 @@ import org.apache.spark.sql.Row
  * A clustering model for K-means. Each point belongs to the cluster with the closest center.
  */
 @Since("0.8.0")
-class KMeansModel @Since("1.1.0") (@Since("1.0.0") val clusterCenters: Array[Vector])
+class KMeansModel @Since("1.1.0")(@Since("1.0.0") val clusterCenters: Array[Vector],
+                                  @Since("1.6.0") val m: Int = 1)
   extends Saveable with Serializable with PMMLExportable {
 
   /**
@@ -118,7 +119,7 @@ object KMeansModel extends Loader[KMeansModel] {
   private[clustering]
   object SaveLoadV1_0 {
 
-    private val thisFormatVersion = "1.0"
+    private val thisFormatVersion = "2.0"
 
     private[clustering]
     val thisClassName = "org.apache.spark.mllib.clustering.KMeansModel"
@@ -127,7 +128,11 @@ object KMeansModel extends Loader[KMeansModel] {
       val sqlContext = new SQLContext(sc)
       import sqlContext.implicits._
       val metadata = compact(render(
-        ("class" -> thisClassName) ~ ("version" -> thisFormatVersion) ~ ("k" -> model.k)))
+        ("class" -> thisClassName)
+          ~ ("version" -> thisFormatVersion)
+          ~ ("k" -> model.k)
+          ~ ("m" -> model.m)
+      ))
       sc.parallelize(Seq(metadata), 1).saveAsTextFile(Loader.metadataPath(path))
       val dataRDD = sc.parallelize(model.clusterCenters.zipWithIndex).map { case (point, id) =>
         Cluster(id, point)
@@ -142,11 +147,12 @@ object KMeansModel extends Loader[KMeansModel] {
       assert(className == thisClassName)
       assert(formatVersion == thisFormatVersion)
       val k = (metadata \ "k").extract[Int]
+      val m = (metadata \ "m").extractOpt[Int].getOrElse(1)
       val centroids = sqlContext.read.parquet(Loader.dataPath(path))
       Loader.checkSchema[Cluster](centroids.schema)
       val localCentroids = centroids.map(Cluster.apply).collect()
       assert(k == localCentroids.size)
-      new KMeansModel(localCentroids.sortBy(_.id).map(_.point))
+      new KMeansModel(localCentroids.sortBy(_.id).map(_.point), m)
     }
   }
 }
