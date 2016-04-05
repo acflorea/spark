@@ -424,7 +424,7 @@ class KMeans private(
 
     logInfo(s"The cost for the best run is $minCost.")
 
-    new KMeansModel(centers(bestRun).map(_.vector))
+    new KMeansModel(centers(bestRun).map(_.vector), m)
   }
 
   /**

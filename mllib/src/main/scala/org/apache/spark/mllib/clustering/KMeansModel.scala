@@ -38,7 +38,7 @@ import org.apache.spark.sql.Row
  */
 @Since("0.8.0")
 class KMeansModel @Since("1.1.0")(@Since("1.0.0") val clusterCenters: Array[Vector],
-                                  @Since("1.6.0") val m: Int = 1)
+                                  @Since("1.6.0") val m: Double = 1.0)
   extends Saveable with Serializable with PMMLExportable {
 
   /**
@@ -62,6 +62,20 @@ class KMeansModel @Since("1.1.0")(@Since("1.0.0") val clusterCenters: Array[Vect
   }
 
   /**
+   * For each cluster, returns its index
+   * and the probability the point belongs to that particular cluster
+   */
+  @Since("1.6.0")
+  def fuzzyPredict(point: Vector): Seq[(Int, Double)] = {
+    val centersWithNorm = clusterCentersWithNorm.toArray
+    val degreesOfMembership = KMeans.degreesOfMembership(
+      centersWithNorm,
+      new VectorWithNorm(point),
+      m)._1
+    degreesOfMembership.zipWithIndex.map(_.swap)
+  }
+
+  /**
    * Maps given points to their cluster indices.
    */
   @Since("1.0.0")
@@ -69,6 +83,24 @@ class KMeansModel @Since("1.1.0")(@Since("1.0.0") val clusterCenters: Array[Vect
     val centersWithNorm = clusterCentersWithNorm
     val bcCentersWithNorm = points.context.broadcast(centersWithNorm)
     points.map(p => KMeans.findClosest(bcCentersWithNorm.value, new VectorWithNorm(p))._1)
+  }
+
+  /**
+   * Maps given points to their cluster indices.
+   */
+  @Since("1.0.0")
+  def fuzzyPredict(points: RDD[Vector]): RDD[Seq[(Int, Double)]] = {
+    val centersWithNorm = clusterCentersWithNorm
+    val bcCentersWithNorm = points.context.broadcast(centersWithNorm)
+    val bcm = points.context.broadcast(m)
+    points.map { p =>
+      val localCentersWithNorm = bcCentersWithNorm.value.toArray
+      val localM = bcm.value
+      KMeans.degreesOfMembership(
+        localCentersWithNorm,
+        new VectorWithNorm(p),
+        localM)._1.zipWithIndex.map(_.swap)
+    }
   }
 
   /**
@@ -147,7 +179,7 @@ object KMeansModel extends Loader[KMeansModel] {
       assert(className == thisClassName)
       assert(formatVersion == thisFormatVersion)
       val k = (metadata \ "k").extract[Int]
-      val m = (metadata \ "m").extractOpt[Int].getOrElse(1)
+      val m = (metadata \ "m").extractOpt[Double].getOrElse(1.0)
       val centroids = sqlContext.read.parquet(Loader.dataPath(path))
       Loader.checkSchema[Cluster](centroids.schema)
       val localCentroids = centroids.map(Cluster.apply).collect()
@@ -155,4 +187,5 @@ object KMeansModel extends Loader[KMeansModel] {
       new KMeansModel(localCentroids.sortBy(_.id).map(_.point), m)
     }
   }
+
 }

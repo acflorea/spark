@@ -45,13 +45,15 @@ class FuzzyCMeansSuite extends SparkFunSuite with MLlibTestSparkContext {
         val model = KMeans.train(rdd, k = 2, maxIterations = 10, runs = 10, initMode,
           seed = 26031979L, m = fuzzifier)
 
-        val fuzzyPredicts = model.predict(rdd).collect()
+        assert(model.m === fuzzifier)
 
-        assert(fuzzyPredicts(0) === fuzzyPredicts(1))
-        assert(fuzzyPredicts(0) === fuzzyPredicts(2))
-        assert(fuzzyPredicts(3) === fuzzyPredicts(4))
-        assert(fuzzyPredicts(3) === fuzzyPredicts(5))
-        assert(fuzzyPredicts(0) != fuzzyPredicts(3))
+        val fuzzyPredicts = model.fuzzyPredict(rdd).collect()
+
+        assert(fuzzyPredicts(0).maxBy(_._2)._1 === fuzzyPredicts(1).maxBy(_._2)._1)
+        assert(fuzzyPredicts(0).maxBy(_._2)._1 === fuzzyPredicts(2).maxBy(_._2)._1)
+        assert(fuzzyPredicts(3).maxBy(_._2)._1 === fuzzyPredicts(4).maxBy(_._2)._1)
+        assert(fuzzyPredicts(3).maxBy(_._2)._1 === fuzzyPredicts(5).maxBy(_._2)._1)
+        assert(fuzzyPredicts(0).maxBy(_._2)._1 != fuzzyPredicts(3).maxBy(_._2)._1)
 
       }
     }
